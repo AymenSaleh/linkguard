@@ -10,6 +10,7 @@ on:
 # Droits minimaux pour le jeton GitHub du pipeline
 permissions:
   contents: read
+  pull-requests: read
 
 jobs:
   build-test-push:
@@ -22,6 +23,22 @@ jobs:
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
+
+      # Sécurité 1 : détection de secrets dans les commits, avant toute compilation
+      - name: Scan des secrets (Gitleaks)
+        uses: gitleaks/gitleaks-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_ENABLE_COMMENTS: false
+
+      # Le rapport est publié même si Gitleaks a fait échouer le pipeline
+      - name: Publier le rapport Gitleaks
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: gitleaks-report
+          path: results.sarif
+          if-no-files-found: warn
 
       - name: Installer Java 21
         uses: actions/setup-java@v5

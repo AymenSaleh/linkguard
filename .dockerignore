@@ -1,0 +1,3 @@
+# Tout exclure du contexte de build, sauf le jar
+*
+!target/*.jar

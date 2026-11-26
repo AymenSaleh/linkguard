@@ -53,6 +53,33 @@ jobs:
       - name: Construire l'image Docker
         run: docker build -t "$IMAGE:${{ github.sha }}" -t "$IMAGE:latest" .
 
+      # Sécurité 2 : scan de l'image (paquets de l'OS + bibliothèques Java du jar)
+      # Action épinglée par SHA (v0.36.0) : en mars 2026, 76 tags de trivy-action
+      # ont été détournés vers un malware voleur d'identifiants (CVE-2026-33634)
+      - name: Rapport Trivy (toutes sévérités)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ env.IMAGE }}:${{ github.sha }}
+          format: table
+          output: trivy-report.txt
+          exit-code: '0'
+
+      - name: Publier le rapport Trivy
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: trivy-report
+          path: trivy-report.txt
+          if-no-files-found: warn
+
+      - name: Politique Trivy (échec si CRITICAL ou HIGH)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ env.IMAGE }}:${{ github.sha }}
+          format: table
+          exit-code: '1'
+          severity: 'CRITICAL,HIGH'
+
       - name: Tester l'image (conteneur)
         run: |
           docker run -d --name linkguard-test -p 8080:8080 "$IMAGE:${{ github.sha }}"

@@ -72,13 +72,16 @@ jobs:
           path: trivy-report.txt
           if-no-files-found: warn
 
-      - name: Politique Trivy (échec si CRITICAL ou HIGH)
+      # Politique durcie : on bloque aussi MEDIUM, mais seulement ce qui a déjà un correctif
+      # (ignore-unfixed) : une faille corrigeable qu'on laisse dans l'image est un choix, pas une fatalité
+      - name: Politique Trivy (échec si MEDIUM+ corrigeable)
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: ${{ env.IMAGE }}:${{ github.sha }}
           format: table
           exit-code: '1'
-          severity: 'CRITICAL,HIGH'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+          ignore-unfixed: true
 
       - name: Tester l'image (conteneur)
         run: |

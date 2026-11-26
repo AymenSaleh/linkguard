@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>LinkGuard</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+    <h1>LinkGuard</h1>
+    <p class="intro">Collez un lien : LinkGuard estime son risque de phishing.</p>
+    <form id="form-analyse">
+        <label for="lien">Lien à analyser</label>
+        <input id="lien" name="lien" type="text" placeholder="https://exemple.com" required>
+        <button type="submit">Analyser</button>
+    </form>
+    <section id="resultat" hidden>
+        <p>Niveau de risque : <strong id="niveau"></strong> (score <span id="score"></span>)</p>
+        <ul id="raisons"></ul>
+    </section>
+    <p id="erreur" class="erreur" hidden></p>
+</main>
+<script src="app.js"></script>
+</body>
+</html>

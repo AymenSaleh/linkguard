@@ -47,13 +47,30 @@ jobs:
           java-version: '21'
           cache: maven
 
-      - name: Compiler et tester (Maven)
-        run: ./mvnw -B -ntp clean package
+      # verify = tests + rapport de couverture JaCoCo (target/site/jacoco/jacoco.xml)
+      - name: Compiler, tester et mesurer la couverture (Maven + JaCoCo)
+        run: ./mvnw -B -ntp clean verify
+
+      # Sécurité 2 : analyse statique du code (SAST) par SonarQube Cloud, avec Quality Gate bloquant.
+      # Seulement sur les PR (contrôle avant le merge) et sur main : la première analyse d'une
+      # nouvelle branche aurait un Quality Gate non calculé, que le scanner traite comme un échec.
+      # Les secrets passent par env, jamais directement dans la commande (règle Sonar S7636).
+      - name: Analyse SonarQube Cloud (Quality Gate)
+        if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_ORGANIZATION: ${{ secrets.SONAR_ORGANIZATION }}
+          SONAR_PROJECT_KEY: ${{ secrets.SONAR_PROJECT_KEY }}
+        run: |
+          ./mvnw -B -ntp org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
+            -Dsonar.organization="$SONAR_ORGANIZATION" \
+            -Dsonar.projectKey="$SONAR_PROJECT_KEY" \
+            -Dsonar.qualitygate.wait=true
 
       - name: Construire l'image Docker
         run: docker build -t "$IMAGE:${{ github.sha }}" -t "$IMAGE:latest" .
 
-      # Sécurité 2 : scan de l'image (paquets de l'OS + bibliothèques Java du jar)
+      # Sécurité 3 : scan de l'image (paquets de l'OS + bibliothèques Java du jar)
       # Action épinglée par SHA (v0.36.0) : en mars 2026, 76 tags de trivy-action
       # ont été détournés vers un malware voleur d'identifiants (CVE-2026-33634)
       - name: Rapport Trivy (toutes sévérités)

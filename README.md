@@ -66,6 +66,19 @@ Secrets GitHub utilisés (aucune valeur dans le code) : `DOCKERHUB_USERNAME`, `D
 - **Trivy** : 0 vulnérabilité MEDIUM ou plus corrigeable après durcissement de l'image (76 avant). Image compressée : de 216,96 Mo à 91,13 Mo.
 - **SonarQube Cloud** (`main`) : Quality Gate **Passed** · Security **A** · Reliability **A** · Maintainability **A** · couverture **94,4 %** · duplication **0,0 %**.
 
+## Répétition des échecs (27 novembre 2026)
+
+Chaque outil a été mis en échec volontairement sur une branche de répétition jamais fusionnée, puis le problème a été retiré (pour le faux secret : réécriture de l'historique de la branche).
+
+| Changement introduit | Ce qui l'arrête | Ce qu'on observe |
+|---|---|---|
+| Action non épinglée : `actions/checkout@v6` | Politique du dépôt, avant toute étape (« Set up job ») | « The action actions/checkout@v6 is not allowed in AymenSaleh/linkguard because all actions must be pinned to a full-length commit SHA » ; aucune étape exécutée |
+| Faux token GitHub (`ghp_…`) dans un fichier | Gitleaks | règle `github-pat`, fichier et ligne indiqués, secret masqué (`REDACTED`) ; GitHub n'a pas refusé le push ; rien n'est construit ni publié |
+| Bibliothèque vulnérable : `commons-text 1.9` | Politique Trivy | CVE-2022-42889 (Text4Shell), CRITICAL, corrigée en 1.10.0 ; l'image n'est pas publiée |
+| Chiffrement faible (DES) dans le code Java, sur une PR | Quality Gate SonarQube Cloud | « D Security Rating on New Code » ; deux checks obligatoires en échec, fusion impossible. Après passage à AES/GCM : Quality Gate passed |
+
+Le rapport Trivy complet de l'image actuelle (toutes sévérités, failles sans correctif comprises) est vide : changer la sévérité ou retirer `ignore-unfixed` ne fait pas échouer le pipeline. Seul un composant vulnérable le fait.
+
 ## Touche personnelle : chaîne d'approvisionnement et gouvernance
 
 Point de départ : sur la PR #6, SonarQube Cloud a fait échouer le Quality Gate (Security C) à cause de deux actions tierces référencées par un tag (`gitleaks-action@v3`, `login-action@v4`). Un tag peut être déplacé vers du code malveillant, comme ce fut le cas pour `trivy-action` en mars 2026 (CVE-2026-33634). Et la PR rouge restait fusionnable.
@@ -88,7 +101,7 @@ LinkGuard (:8081/actuator/prometheus)  →  Prometheus (:9090)  →  Grafana (:3
 docker compose -f monitoring/docker-compose.yml up -d
 ```
 
-- **Grafana** : http://127.0.0.1:3001. Premier accès `admin` / `admin`, puis Grafana impose un nouveau mot de passe. Importer le tableau de bord **11378** (*Spring Boot 2.1 System Monitor*) ; la source de données Prometheus est déjà déclarée en code.
+- **Grafana** : http://127.0.0.1:3001. Premier accès `admin` / `admin`, puis Grafana demande un nouveau mot de passe (ne pas cliquer sur « Skip »). Importer le tableau de bord **11378** (*Spring Boot 2.1 System Monitor*) ; la source de données Prometheus est déjà déclarée en code.
 - **Prometheus** : http://127.0.0.1:9090 (cible `linkguard`).
 - **Arrêt** : `docker compose -f monitoring/docker-compose.yml down` (avec `-v`, les données de Grafana sont aussi effacées).
 
@@ -99,7 +112,7 @@ docker compose -f monitoring/docker-compose.yml up -d
 | Application supervisée | lancée sur la machine (`mvn spring-boot:run`) | image publiée par le pipeline, épinglée par le SHA de son commit |
 | Images Prometheus et Grafana | sans tag (`latest`) | versions figées : Prometheus `v3.13.5` (LTS), Grafana `13.3.2` |
 | Ports publiés | sur toutes les interfaces | sur `127.0.0.1` uniquement (Prometheus n'a pas d'authentification par défaut) |
-| Mot de passe Grafana | `admin`, écrit dans le compose | aucun mot de passe dans le dépôt ; changement imposé à la première connexion |
+| Mot de passe Grafana | `admin`, écrit dans le compose | aucun mot de passe dans le dépôt ; changement demandé à la première connexion |
 | Source de données Grafana | ajoutée à la main | déclarée en code (provisioning), non modifiable depuis l'interface |
 | Fichiers de configuration | montés en écriture | montés en lecture seule |
 | Démarrage | — | healthcheck Docker sur `/actuator/health` : Prometheus attend que l'application soit prête |

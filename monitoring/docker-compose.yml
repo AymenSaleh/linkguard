@@ -5,7 +5,7 @@
 #  - images figées (version exacte ou SHA du commit), jamais « latest » ;
 #  - ports publiés sur 127.0.0.1 uniquement : rien n'est exposé sur le réseau local ;
 #  - le port de gestion 8081 (Actuator) n'est jamais publié : seul Prometheus l'atteint, dans le réseau Docker ;
-#  - aucun mot de passe dans ce fichier : Grafana impose de changer admin/admin à la première connexion ;
+#  - aucun mot de passe dans ce fichier : Grafana demande de changer admin/admin à la première connexion (ne pas cliquer sur « Skip ») ;
 #  - fichiers de configuration montés en lecture seule.
 
 name: linkguard-monitoring

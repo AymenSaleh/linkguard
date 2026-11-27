@@ -33,7 +33,7 @@ java -jar target\linkguard-0.0.1-SNAPSHOT.jar
 
 `verify` exécute aussi les tests et produit le rapport de couverture JaCoCo : `target\site\jacoco\index.html`.
 
-Interface : http://localhost:8080 · API : `GET /api/analyze?url=<lien>`
+Interface : http://localhost:8080 · API : `GET /api/analyze?url=<lien>` · Mesures (port de gestion) : http://localhost:8081/actuator/prometheus
 
 ## Docker
 
@@ -75,6 +75,41 @@ Point de départ : sur la PR #6, SonarQube Cloud a fait échouer le Quality Gate
 3. **Ruleset `protect-main`** sur `main` : pull request obligatoire ; checks obligatoires `build-test-push` (source : GitHub Actions) et `SonarCloud Code Analysis` (source : SonarQube Cloud) ; historique linéaire (rebase uniquement) ; ni force push ni suppression. Vérifié : un push direct sur `main` est refusé (`GH013`).
 
 Autres choix de sécurité : token SonarQube Cloud passé par variable d'environnement (règle Sonar S7636) et doté d'une date d'expiration ; version du scanner SonarQube figée dans `pom.xml` ; analyse automatique de SonarQube Cloud désactivée au profit de l'analyse dans le pipeline (couverture et Quality Gate bloquant).
+
+## Supervision (bonus TP4) : Prometheus et Grafana
+
+L'application publie ses mesures avec Spring Boot Actuator et Micrometer ; Prometheus les collecte toutes les 15 s et Grafana les affiche.
+
+```text
+LinkGuard (:8081/actuator/prometheus)  →  Prometheus (:9090)  →  Grafana (:3001, tableau de bord 11378)
+```
+
+```powershell
+docker compose -f monitoring/docker-compose.yml up -d
+```
+
+- **Grafana** : http://127.0.0.1:3001. Premier accès `admin` / `admin`, puis Grafana impose un nouveau mot de passe. Importer le tableau de bord **11378** (*Spring Boot 2.1 System Monitor*) ; la source de données Prometheus est déjà déclarée en code.
+- **Prometheus** : http://127.0.0.1:9090 (cible `linkguard`).
+- **Arrêt** : `docker compose -f monitoring/docker-compose.yml down` (avec `-v`, les données de Grafana sont aussi effacées).
+
+| Point | Dans le TP | Ici |
+|---|---|---|
+| Endpoints Actuator exposés | tous (`include=*`), dont `env` et `heapdump` | `health` et `prometheus` seulement |
+| Port des endpoints | celui de l'application (8080) | port de gestion séparé (8081), jamais publié : seul Prometheus l'atteint, dans le réseau Docker |
+| Application supervisée | lancée sur la machine (`mvn spring-boot:run`) | image publiée par le pipeline, épinglée par le SHA de son commit |
+| Images Prometheus et Grafana | sans tag (`latest`) | versions figées : Prometheus `v3.13.5` (LTS), Grafana `13.3.2` |
+| Ports publiés | sur toutes les interfaces | sur `127.0.0.1` uniquement (Prometheus n'a pas d'authentification par défaut) |
+| Mot de passe Grafana | `admin`, écrit dans le compose | aucun mot de passe dans le dépôt ; changement imposé à la première connexion |
+| Source de données Grafana | ajoutée à la main | déclarée en code (provisioning), non modifiable depuis l'interface |
+| Fichiers de configuration | montés en écriture | montés en lecture seule |
+| Démarrage | — | healthcheck Docker sur `/actuator/health` : Prometheus attend que l'application soit prête |
+
+Vérifications du 27 novembre 2026 :
+- **en local** : `/actuator/prometheus` répond sur 8081 et renvoie 404 sur 8080 ; `/actuator/env` et `/actuator/heapdump` renvoient 404 ;
+- **avec Docker Compose** : la cible Prometheus est `up` (`up=1`, label `application=linkguard`) ; depuis la machine, 8081 ne répond pas, alors que 8080 et Grafana répondent ;
+- **Grafana** : le tableau de bord 11378 affiche la mémoire, le CPU et l'uptime de l'application.
+
+![Tableau de bord Grafana 11378 alimenté par Prometheus](docs/images/grafana-dashboard.png)
 
 ## Workflow Git
 

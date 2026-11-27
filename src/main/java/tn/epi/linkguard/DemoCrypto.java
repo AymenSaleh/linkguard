@@ -8,6 +8,6 @@ import javax.crypto.Cipher;
 class DemoCrypto {
 
     Cipher chiffreur() throws GeneralSecurityException {
-        return Cipher.getInstance("DES");
+        return Cipher.getInstance("AES/GCM/NoPadding");
     }
 }

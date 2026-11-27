@@ -1,0 +1,60 @@
+# Supervision locale de LinkGuard (bonus TP4) : application + Prometheus + Grafana.
+# Lancer depuis la racine du dépôt : docker compose -f monitoring/docker-compose.yml up -d
+#
+# Différences de sécurité avec le TP :
+#  - images figées (version exacte ou SHA du commit), jamais « latest » ;
+#  - ports publiés sur 127.0.0.1 uniquement : rien n'est exposé sur le réseau local ;
+#  - le port de gestion 8081 (Actuator) n'est jamais publié : seul Prometheus l'atteint, dans le réseau Docker ;
+#  - aucun mot de passe dans ce fichier : Grafana impose de changer admin/admin à la première connexion ;
+#  - fichiers de configuration montés en lecture seule.
+
+name: linkguard-monitoring
+
+services:
+  linkguard:
+    # Image construite, testée, scannée (Trivy) et publiée par le pipeline pour le commit 7eedc04
+    image: aymensaleh/linkguard:7eedc048c7d50399a5c570ad7ebc7d4fb1c4d082
+    ports:
+      - "127.0.0.1:8080:8080"
+    healthcheck:
+      # Docker interroge l'endpoint health (port 8081, interne) pour savoir si l'application est prête
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8081/actuator/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 30s
+    networks:
+      - monitoring
+
+  prometheus:
+    # Version LTS de Prometheus (support jusqu'au 31 juillet 2027)
+    image: prom/prometheus:v3.13.5
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "127.0.0.1:9090:9090"
+    depends_on:
+      linkguard:
+        condition: service_healthy
+    networks:
+      - monitoring
+
+  grafana:
+    image: grafana/grafana:13.3.2
+    volumes:
+      # Source de données Prometheus déclarée en code (provisioning), pas d'ajout manuel
+      - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      # Tableaux de bord et compte admin conservés entre deux redémarrages
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "127.0.0.1:3001:3000"
+    depends_on:
+      - prometheus
+    networks:
+      - monitoring
+
+networks:
+  monitoring:
+
+volumes:
+  grafana-data:

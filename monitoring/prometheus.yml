@@ -1,0 +1,13 @@
+# Prometheus : collecte les mesures de LinkGuard
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: linkguard
+    metrics_path: /actuator/prometheus
+    static_configs:
+      # Port de gestion 8081 : joignable seulement à l'intérieur du réseau Docker « monitoring »
+      - targets: ["linkguard:8081"]
+        labels:
+          # Label attendu par le tableau de bord Grafana 11378 (variable $application)
+          application: linkguard
